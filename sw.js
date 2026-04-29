@@ -1,5 +1,3 @@
-
-
 const CACHE = 'wealthscribe-v2';
 const SHELL = ['./wealthscribe.html', './'];
 
