@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WealthScribe</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0d0a07; --surface: #151009; --card: #1c1510; --border: #2e2016;
+    --gold: #c9a84c; --gold-light: #e8c96a; --gold-dim: #7a6030;
+    --cream: #f0e6d0; --muted: #7a6a55; --red: #c04a3a; --green: #4a8c5c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--cream);
+    min-height: 100vh; overflow-x: hidden; padding-bottom: 90px;
+  }
+
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 999; opacity: 0.4;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+
+  header {
+    padding: 22px 32px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--bg); z-index: 10;
+  }
+
+  .logo { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; color: var(--gold); letter-spacing: -0.5px; }
+  .logo span { color: var(--cream); font-style: italic; font-weight: 400; }
+  .tagline { font-size: 0.7rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+
+  .tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 10px; padding: 4px; border: 1px solid var(--border); }
+  .tab { padding: 8px 15px; border-radius: 7px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: none; background: transparent; color: var(--muted); transition: all 0.2s; }
+  .tab.active { background: var(--card); color: var(--gold); border: 1px solid var(--border); }
+
+  .main { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+  .capture-zone {
+    border: 2px dashed var(--border); border-radius: 16px; padding: 48px 32px;
+    text-align: center; cursor: pointer; transition: all 0.3s;
+    position: relative; background: var(--surface);
+  }
+  .capture-zone:hover, .capture-zone.drag-over { border-color: var(--gold-dim); background: #1a130a; }
+  .capture-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .capture-icon { font-size: 3rem; margin-bottom: 16px; display: block; }
+  .capture-zone h2 { font-family: 'Playfair Display', serif; font-size: 1.4rem; color: var(--cream); margin-bottom: 8px; }
+  .capture-zone p { font-size: 0.85rem; color: var(--muted); }
+
+  .or-divider { display: flex; align-items: center; gap: 16px; margin: 24px 0; color: var(--muted); font-size: 0.8rem; }
+  .or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  #preview-area { display: none; margin-top: 24px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  #preview-img { width: 100%; display: block; max-height: 480px; object-fit: contain; background: #111; }
+
+  .extract-btn {
+    width: 100%; padding: 14px; background: var(--gold); color: #0d0a07;
+    border: none; font-family: 'DM Sans', sans-serif; font-weight: 600;
+    font-size: 0.95rem; cursor: pointer; transition: background 0.2s;
+  }
+  .extract-btn:hover { background: var(--gold-light); }
+  .extract-btn:disabled { background: var(--gold-dim); cursor: not-allowed; }
+
+  #text-editor-area { display: none; margin-top: 24px; }
+  .editor-label { font-size: 0.75rem; color: var(--gold-dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+
+  #extracted-text {
+    width: 100%; min-height: 200px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; color: var(--cream); font-family: 'DM Sans', sans-serif;
+    font-size: 0.92rem; line-height: 1.75; resize: vertical; outline: none; transition: border-color 0.2s;
+  }
+  #extracted-text:focus { border-color: var(--gold-dim); }
+
+  .hint-text { font-size: 0.78rem; color: var(--muted); margin-top: 8px; font-style: italic; }
+
+  .note-meta { display: flex; gap: 12px; margin-top: 16px; }
+  .note-meta input, .note-meta select {
+    flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none;
+  }
+  .note-meta input:focus, .note-meta select:focus { border-color: var(--gold-dim); }
+  .note-meta select option { background: var(--card); }
+
+  .save-note-btn {
+    margin-top: 12px; width: 100%; padding: 13px; background: transparent;
+    border: 1px solid var(--gold-dim); border-radius: 10px; color: var(--gold);
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s;
+  }
+  .save-note-btn:hover { background: #1c1510; border-color: var(--gold); }
+
+  /* LIBRARY */
+  .library-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .library-header h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; }
+  .note-count { font-size: 0.8rem; color: var(--muted); background: var(--card); padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); }
+
+  .filter-row { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .filter-chip { padding: 6px 14px; border-radius: 20px; font-size: 0.78rem; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+  .filter-chip.active, .filter-chip:hover { border-color: var(--gold-dim); color: var(--gold); background: var(--card); }
+
+  .notes-grid { display: flex; flex-direction: column; gap: 16px; }
+
+  .note-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; transition: border-color 0.2s, transform 0.15s; }
+  .note-card:hover { border-color: var(--gold-dim); transform: translateY(-1px); }
+  .note-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+  .note-book { font-size: 0.72rem; color: var(--gold-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 500; }
+  .note-date { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+
+  .voice-badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem;
+    color: var(--green); background: #0d1f14; border: 1px solid #2a5038;
+    border-radius: 12px; padding: 2px 8px; margin-top: 4px;
+  }
+
+  .note-text {
+    font-family: 'Playfair Display', serif; font-size: 0.97rem; line-height: 1.8;
+    color: var(--cream); margin-bottom: 14px;
+    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .note-text.expanded { -webkit-line-clamp: unset; }
+
+  .note-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .btn-play {
+    display: flex; align-items: center; gap: 6px; padding: 8px 16px;
+    background: var(--gold); color: #0d0a07; border: none; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-play:hover { background: var(--gold-light); }
+  .btn-play.playing { background: var(--red); color: white; }
+
+  .btn-record-note {
+    padding: 8px 14px; background: transparent; border: 1px solid var(--green);
+    border-radius: 8px; color: var(--green); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-record-note:hover { background: #0d1f14; }
+
+  .btn-icon {
+    padding: 8px 10px; background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
+  }
+  .btn-icon:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .btn-delete:hover { border-color: var(--red) !important; color: var(--red) !important; }
+
+  /* RECORD MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    z-index: 500; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 32px; width: 100%; max-width: 520px; position: relative;
+  }
+
+  .modal-close { position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--muted); font-size: 1.3rem; cursor: pointer; }
+
+  .modal h2 { font-family: 'Playfair Display', serif; font-size: 1.3rem; margin-bottom: 6px; }
+  .modal-subtitle { font-size: 0.82rem; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+
+  .modal-note-preview {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; font-family: 'Playfair Display', serif; font-size: 0.88rem;
+    line-height: 1.7; color: var(--cream); margin-bottom: 18px;
+    max-height: 110px; overflow-y: auto;
+  }
+
+  .waveform-container {
+    height: 60px; background: var(--surface); border-radius: 10px; border: 1px solid var(--border);
+    margin-bottom: 14px; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; gap: 2px; padding: 0 10px;
+  }
+
+  .wave-bar { width: 3px; background: var(--gold-dim); border-radius: 2px; height: 6px; transition: height 0.07s; }
+  .wave-bar.active { background: var(--gold); }
+
+  .rec-timer { text-align: center; font-size: 2rem; font-family: 'Playfair Display', serif; color: var(--gold); margin-bottom: 4px; letter-spacing: 2px; }
+  .rec-status { text-align: center; font-size: 0.78rem; color: var(--muted); margin-bottom: 18px; }
+  .rec-status.live { color: var(--red); }
+
+  .rec-controls { display: flex; gap: 10px; }
+
+  .rec-btn { flex: 1; padding: 13px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+  .rec-btn-start { background: var(--red); color: white; }
+  .rec-btn-stop { background: var(--surface); color: var(--cream); border: 1px solid var(--border); }
+  .rec-btn-save { background: var(--gold); color: #0d0a07; }
+  .rec-btn-discard { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .rec-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  @keyframes pulse-rec { 0%,100%{opacity:1}50%{opacity:0.55} }
+
+  .rec-playback { margin: 14px 0; display: none; }
+  .rec-playback p { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
+  .rec-playback audio { width: 100%; border-radius: 8px; }
+
+  /* NOW PLAYING */
+  #now-playing {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0;
+    background: #1c1510; border-top: 1px solid var(--gold-dim);
+    padding: 12px 28px; z-index: 100; align-items: center; gap: 16px;
+  }
+  #now-playing.visible { display: flex; }
+
+  .np-info { flex: 1; min-width: 0; }
+  .np-book { font-size: 0.68rem; color: var(--gold-dim); letter-spacing: 1px; text-transform: uppercase; }
+  .np-text { font-size: 0.84rem; color: var(--cream); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .np-voice-type { font-size: 0.66rem; color: var(--green); margin-top: 1px; }
+
+  .np-controls { display: flex; gap: 8px; align-items: center; }
+  .np-btn { padding: 8px 14px; border-radius: 8px; font-size: 0.82rem; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 500; }
+  .np-stop { background: var(--red); color: white; }
+  .np-pause { background: var(--card); color: var(--cream); border: 1px solid var(--border); }
+
+  /* SETTINGS */
+  .settings-section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+  .settings-section h3 { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--cream); margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 0.88rem; color: var(--cream); }
+  .setting-desc { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .setting-row select { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.85rem; outline: none; max-width: 200px; }
+  .setting-row input[type=range] { accent-color: var(--gold); width: 110px; }
+
+  .empty-state { text-align: center; padding: 80px 32px; color: var(--muted); }
+  .empty-state .empty-icon { font-size: 3rem; margin-bottom: 16px; display: block; }
+
+  #toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 20px; font-size: 0.85rem; color: var(--cream); z-index: 600;
+    opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 640px) {
+    header { padding: 16px; flex-direction: column; gap: 14px; }
+    .main { padding: 20px 16px; }
+    #now-playing { flex-direction: column; gap: 10px; align-items: flex-start; }
+    .note-meta { flex-direction: column; }
+    .tabs .tab { padding: 8px 10px; font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Wealth<span>Scribe</span></div>
+    <div class="tagline">Capture · Highlight · Listen</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showPanel('capture')">📸 Capture</button>
+    <button class="tab" onclick="showPanel('library')">📚 Library</button>
+    <button class="tab" onclick="showPanel('settings')">⚙️ Settings</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- CAPTURE -->
+  <div id="panel-capture">
+    <div class="capture-zone" id="drop-zone">
+      <input type="file" id="file-input" accept="image/*" onchange="handleFile(event)">
+      <span class="capture-icon">📷</span>
+      <h2>Drop or tap to capture a page</h2>
+      <p>Photo of a physical book, or screenshot of any ebook</p>
+    </div>
+
+    <div class="or-divider">or paste a screenshot (Ctrl+V / ⌘V)</div>
+
+    <div id="preview-area">
+      <img id="preview-img" src="" alt="">
+      <button class="extract-btn" id="extract-btn" onclick="extractText()">✨ Extract Text with AI</button>
+    </div>
+
+    <div id="text-editor-area">
+      <div class="editor-label">Extracted Text — edit freely, then select what to save</div>
+      <textarea id="extracted-text" placeholder="AI-extracted text appears here..."></textarea>
+      <p class="hint-text">💡 Highlight a specific part then click "Save Selected", or save the full text.</p>
+      <div class="note-meta">
+        <input type="text" id="book-title" placeholder="Book title (e.g. Rich Dad Poor Dad)">
+        <select id="note-category">
+          <option>Mindset</option><option>Investment</option><option>Business</option>
+          <option>Money</option><option>Strategy</option><option>Philosophy</option><option>Other</option>
+        </select>
+      </div>
+      <button class="save-note-btn" onclick="saveNote(false)">💾 Save Full Text as Note</button>
+      <button class="save-note-btn" style="border-color:var(--green);color:var(--green)" onclick="saveNote(true)">✂️ Save Selected Text as Note</button>
+    </div>
+  </div>
+
+  <!-- LIBRARY -->
+  <div id="panel-library" style="display:none">
+    <div class="library-header">
+      <h2>My Notes</h2>
+      <span class="note-count" id="note-count">0 notes</span>
+    </div>
+    <div class="filter-row" id="filter-row">
+      <button class="filter-chip active" onclick="filterNotes('All')">All</button>
+    </div>
+    <div class="notes-grid" id="notes-grid"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="panel-settings" style="display:none">
+    <div class="settings-section">
+      <h3>🗣️ AI Voice Settings</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">Voice</div><div class="setting-desc">Pick the most natural voice on your device</div></div>
+        <select id="global-voice-select" onchange="saveSettings()"></select>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Reading Speed</div><div class="setting-desc">Slower aids retention</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" id="speed-range" min="0.6" max="1.6" step="0.05" value="0.85" oninput="updateSpeedLabel();saveSettings()">
+          <span id="speed-label" style="font-size:0.8rem;color:var(--gold);min-width:36px">0.85×</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Pitch</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" id="pitch-range" min="0.7" max="1.3" step="0.05" value="1.0" oninput="updatePitchLabel();saveSettings()">
+          <span id="pitch-label" style="font-size:0.8rem;color:var(--gold);min-width:28px">1.0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>🎙️ Your Voice Recordings</h3>
+      <p style="font-size:0.84rem;color:var(--muted);margin-bottom:16px;line-height:1.6">
+        Open any note in Library and tap <strong style="color:var(--green)">🎙 Record My Voice</strong>. Your recording plays back instead of the AI voice — making every note feel personal.
+      </p>
+      <div class="setting-row">
+        <div><div class="setting-label">Saved recordings</div><div class="setting-desc">Stored in your browser</div></div>
+        <span id="recording-count" style="font-size:0.88rem;color:var(--gold)">0</span>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Clear all recordings</div><div class="setting-desc">Notes stay, recordings removed</div></div>
+        <button class="btn-icon btn-delete" onclick="clearAllRecordings()" style="padding:8px 14px;font-size:0.82rem">Clear</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>🧪 Voice Test</h3>
+      <div style="display:flex;gap:10px">
+        <button class="save-note-btn" style="margin-top:0;flex:1" onclick="testVoice()">▶ Test Current AI Voice</button>
+        <button class="btn-icon" onclick="stopAll()" style="padding:10px 14px">■ Stop</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>🗂️ Data</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">Export all notes</div></div>
+        <button class="btn-icon" onclick="exportNotes()" style="padding:8px 14px;font-size:0.82rem">Export</button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Clear all notes</div><div class="setting-desc">Cannot be undone</div></div>
+        <button class="btn-icon btn-delete" onclick="clearAllNotes()" style="padding:8px 14px;font-size:0.82rem">Clear All</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RECORD MODAL -->
+<div class="modal-overlay" id="record-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeRecordModal()">✕</button>
+    <h2>🎙️ Record Your Voice</h2>
+    <p class="modal-subtitle">Read the note aloud in your own voice. It saves to this note and plays back whenever you hit Listen.</p>
+
+    <div class="modal-note-preview" id="modal-note-text"></div>
+
+    <div class="waveform-container" id="waveform"></div>
+
+    <div class="rec-timer" id="rec-timer">0:00</div>
+    <div class="rec-status" id="rec-status">Ready to record</div>
+
+    <div class="rec-playback" id="rec-playback">
+      <p>Preview your recording:</p>
+      <audio id="rec-audio" controls></audio>
+    </div>
+
+    <div class="rec-controls">
+      <button class="rec-btn rec-btn-start" id="btn-start-rec" onclick="startRecording()">⏺ Start Recording</button>
+      <button class="rec-btn rec-btn-stop" id="btn-stop-rec" onclick="stopRecording()" disabled>⏹ Stop</button>
+    </div>
+
+    <div class="rec-controls" id="save-discard-row" style="display:none;margin-top:10px">
+      <button class="rec-btn rec-btn-discard" onclick="discardRecording()">✕ Discard</button>
+      <button class="rec-btn rec-btn-save" onclick="saveRecording()">✅ Save My Voice</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOW PLAYING -->
+<div id="now-playing">
+  <div class="np-info">
+    <div class="np-book" id="np-book">—</div>
+    <div class="np-text" id="np-text">—</div>
+    <div class="np-voice-type" id="np-voice-type"></div>
+  </div>
+  <div class="np-controls">
+    <button class="np-btn np-pause" id="np-pause-btn" onclick="togglePause()">⏸ Pause</button>
+    <button class="np-btn np-stop" onclick="stopAll()">■ Stop</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// STATE
+let notes = JSON.parse(localStorage.getItem('wealthscribe_notes') || '[]');
+let settings = JSON.parse(localStorage.getItem('wealthscribe_settings') || '{"speed":0.85,"pitch":1.0,"voiceURI":""}');
+let currentImage = null;
+let voices = [];
+let activeUtterance = null;
+let activeAudio = null;
+let isPaused = false;
+let playingNoteId = null;
+
+// Recorder
+let mediaRecorder = null;
+let recordingChunks = [];
+let recordingNoteId = null;
+let recTimerInterval = null;
+let recSeconds = 0;
+let recBlob = null;
+let analyserNode = null;
+let audioCtx = null;
+let animFrameId = null;
+let micStream = null;
+
+// PANEL
+function showPanel(name) {
+  ['capture','library','settings'].forEach(p => {
+    document.getElementById('panel-'+p).style.display = p===name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['capture','library','settings'][i]===name);
+  });
+  if (name==='library') renderLibrary();
+  if (name==='settings') { loadSettings(); updateSettingsUI(); }
+}
+
+// FILE
+function handleFile(e) { if(e.target.files[0]) loadImage(e.target.files[0]); }
+
+function loadImage(file) {
+  const r = new FileReader();
+  r.onload = ev => {
+    currentImage = ev.target.result;
+    document.getElementById('preview-img').src = currentImage;
+    document.getElementById('preview-area').style.display = 'block';
+    document.getElementById('text-editor-area').style.display = 'none';
+  };
+  r.readAsDataURL(file);
+}
+
+document.addEventListener('paste', e => {
+  for (let item of e.clipboardData.items) {
+    if (item.type.startsWith('image/')) { loadImage(item.getAsFile()); showPanel('capture'); break; }
+  }
+});
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadImage(f);
+});
+
+// EXTRACT
+async function extractText() {
+  if (!currentImage) return;
+  const btn = document.getElementById('extract-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Extracting...';
+  try {
+    const base64 = currentImage.split(',')[1];
+    const mediaType = currentImage.split(';')[0].split(':')[1];
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514", max_tokens: 1000,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+          { type: "text", text: "Extract all readable text from this book page or screenshot. Return ONLY the extracted text, preserving paragraphs. No commentary." }
+        ]}]
+      })
+    });
+    const data = await res.json();
+    const txt = data.content?.[0]?.text || '';
+    if (txt) {
+      document.getElementById('extracted-text').value = txt;
+      document.getElementById('text-editor-area').style.display = 'block';
+      toast('✅ Text extracted! Edit or select what to save.');
+    } else { toast('⚠️ Could not extract text. Try a clearer image.'); }
+  } catch(e) { toast('❌ Extraction failed. Check your connection.'); }
+  btn.disabled = false;
+  btn.innerHTML = '✨ Extract Text with AI';
+}
+
+// SAVE NOTE
+function saveNote(selectionOnly) {
+  const ta = document.getElementById('extracted-text');
+  let text = selectionOnly
+    ? ta.value.substring(ta.selectionStart, ta.selectionEnd).trim()
+    : ta.value.trim();
+  if (!text) { toast(selectionOnly ? '⚠️ Select some text first.' : '⚠️ No text to save.'); return; }
+
+  const note = {
+    id: Date.now(),
+    text,
+    book: document.getElementById('book-title').value.trim() || 'Untitled Book',
+    category: document.getElementById('note-category').value,
+    date: new Date().toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})
+  };
+  notes.unshift(note);
+  localStorage.setItem('wealthscribe_notes', JSON.stringify(notes));
+  toast('✅ Saved! Go to Library to record your voice on it.');
+
+  document.getElementById('extracted-text').value = '';
+  document.getElementById('text-editor-area').style.display = 'none';
+  document.getElementById('preview-area').style.display = 'none';
+  document.getElementById('book-title').value = '';
+  currentImage = null;
+}
+
+// LIBRARY
+function renderLibrary() {
+  const grid = document.getElementById('notes-grid');
+  document.getElementById('note-count').textContent = `${notes.length} note${notes.length!==1?'s':''}`;
+
+  const cats = ['All', ...new Set(notes.map(n => n.category))];
+  const activeFilter = document.querySelector('.filter-chip.active')?.textContent || 'All';
+  document.getElementById('filter-row').innerHTML = cats.map(c =>
+    `<button class="filter-chip ${c===activeFilter?'active':''}" onclick="filterNotes('${c}')">${c}</button>`
+  ).join('');
+
+  const filtered = activeFilter==='All' ? notes : notes.filter(n=>n.category===activeFilter);
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="empty-state"><span class="empty-icon">📖</span><p>No notes yet. Start capturing wealth wisdom!</p></div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(note => {
+    const hasRec = !!localStorage.getItem('wsrec_'+note.id);
+    return `
+    <div class="note-card" id="note-${note.id}">
+      <div class="note-card-top">
+        <div>
+          <div class="note-book">${escH(note.book)} · ${escH(note.category)}</div>
+          ${hasRec ? '<div class="voice-badge">🎙 Your voice saved</div>' : ''}
+        </div>
+        <div class="note-date">${note.date}</div>
+      </div>
+      <div class="note-text" id="text-${note.id}">${escH(note.text)}</div>
+      <div class="note-actions">
+        <button class="btn-play" id="play-${note.id}" onclick="playNote(${note.id})">▶ Listen</button>
+        <button class="btn-record-note" onclick="openRecordModal(${note.id})">
+          ${hasRec ? '🔄 Re-record Voice' : '🎙 Record My Voice'}
+        </button>
+        ${hasRec ? `<button class="btn-icon" title="Remove recording" onclick="deleteRecording(${note.id})" style="font-size:0.75rem">🗑🎙</button>` : ''}
+        <button class="btn-icon" onclick="toggleExpand(${note.id})">⤢</button>
+        <button class="btn-icon btn-delete" onclick="deleteNote(${note.id})">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterNotes(cat) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.textContent===cat));
+  renderLibrary();
+}
+
+function toggleExpand(id) { document.getElementById('text-'+id).classList.toggle('expanded'); }
+
+function deleteNote(id) {
+  if (!confirm('Delete this note and its voice recording?')) return;
+  notes = notes.filter(n=>n.id!==id);
+  localStorage.setItem('wealthscribe_notes', JSON.stringify(notes));
+  localStorage.removeItem('wsrec_'+id);
+  renderLibrary();
+  toast('🗑 Note deleted.');
+}
+
+function deleteRecording(id) {
+  if (!confirm('Remove voice recording for this note?')) return;
+  localStorage.removeItem('wsrec_'+id);
+  renderLibrary();
+  toast('🗑 Voice recording removed.');
+}
+
+function clearAllNotes() {
+  if (!confirm('Delete ALL notes and recordings?')) return;
+  notes = [];
+  localStorage.setItem('wealthscribe_notes', JSON.stringify(notes));
+  Object.keys(localStorage).filter(k=>k.startsWith('wsrec_')).forEach(k=>localStorage.removeItem(k));
+  renderLibrary();
+  toast('🗑 All notes cleared.');
+}
+
+function clearAllRecordings() {
+  if (!confirm('Remove all voice recordings? Notes stay.')) return;
+  Object.keys(localStorage).filter(k=>k.startsWith('wsrec_')).forEach(k=>localStorage.removeItem(k));
+  renderLibrary(); updateSettingsUI();
+  toast('🗑 All recordings removed.');
+}
+
+function exportNotes() {
+  const blob = new Blob([JSON.stringify(notes, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='wealthscribe-notes.json'; a.click();
+  URL.revokeObjectURL(url); toast('📤 Exported!');
+}
+
+// PLAYBACK
+function playNote(id) {
+  const note = notes.find(n=>n.id===id);
+  if (!note) return;
+  if (playingNoteId===id) { stopAll(); return; }
+  stopAll();
+
+  const recData = localStorage.getItem('wsrec_'+id);
+
+  if (recData) {
+    playingNoteId = id;
+    const audio = new Audio(recData);
+    activeAudio = audio;
+    const btn = document.getElementById('play-'+id);
+    if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); }
+    document.getElementById('now-playing').classList.add('visible');
+    document.getElementById('np-book').textContent = note.book;
+    document.getElementById('np-text').textContent = note.text;
+    document.getElementById('np-voice-type').textContent = '🎙 Playing your voice';
+    document.getElementById('np-pause-btn').textContent = '⏸ Pause';
+    isPaused = false;
+    audio.onended = () => {
+      const b = document.getElementById('play-'+id);
+      if (b) { b.textContent = '▶ Listen'; b.classList.remove('playing'); }
+      document.getElementById('now-playing').classList.remove('visible');
+      playingNoteId = null; activeAudio = null;
+    };
+    audio.play().catch(() => toast('❌ Could not play recording.'));
+  } else {
+    playingNoteId = id;
+    const utter = new SpeechSynthesisUtterance(note.text);
+    utter.voice = getSelectedVoice();
+    utter.rate = parseFloat(settings.speed||0.85);
+    utter.pitch = parseFloat(settings.pitch||1.0);
+    utter.volume = 1;
+    utter.onstart = () => {
+      const btn = document.getElementById('play-'+id);
+      if (btn) { btn.textContent = '⏹ Stop'; btn.classList.add('playing'); }
+      document.getElementById('now-playing').classList.add('visible');
+      document.getElementById('np-book').textContent = note.book;
+      document.getElementById('np-text').textContent = note.text;
+      document.getElementById('np-voice-type').textContent = '🤖 AI voice · tap 🎙 Record My Voice to use yours';
+      document.getElementById('np-pause-btn').textContent = '⏸ Pause';
+      isPaused = false;
+    };
+    utter.onend = () => {
+      const btn = document.getElementById('play-'+id);
+      if (btn) { btn.textContent = '▶ Listen'; btn.classList.remove('playing'); }
+      document.getElementById('now-playing').classList.remove('visible');
+      playingNoteId = null;
+    };
+    activeUtterance = utter;
+    window.speechSynthesis.speak(utter);
+  }
+}
+
+function togglePause() {
+  if (activeAudio) {
+    if (isPaused) { activeAudio.play(); isPaused=false; document.getElementById('np-pause-btn').textContent='⏸ Pause'; }
+    else { activeAudio.pause(); isPaused=true; document.getElementById('np-pause-btn').textContent='▶ Resume'; }
+  } else {
+    if (isPaused) { window.speechSynthesis.resume(); isPaused=false; document.getElementById('np-pause-btn').textContent='⏸ Pause'; }
+    else { window.speechSynthesis.pause(); isPaused=true; document.getElementById('np-pause-btn').textContent='▶ Resume'; }
+  }
+}
+
+function stopAll() {
+  window.speechSynthesis.cancel();
+  if (activeAudio) { activeAudio.pause(); activeAudio=null; }
+  isPaused = false;
+  if (playingNoteId) {
+    const btn = document.getElementById('play-'+playingNoteId);
+    if (btn) { btn.textContent='▶ Listen'; btn.classList.remove('playing'); }
+    playingNoteId = null;
+  }
+  document.getElementById('now-playing').classList.remove('visible');
+}
+
+// RECORD MODAL
+function openRecordModal(noteId) {
+  recordingNoteId = noteId; recBlob = null; recordingChunks = []; recSeconds = 0;
+  const note = notes.find(n=>n.id===noteId);
+  document.getElementById('modal-note-text').textContent = note ? note.text : '';
+  document.getElementById('rec-timer').textContent = '0:00';
+  document.getElementById('rec-status').textContent = 'Ready to record';
+  document.getElementById('rec-status').className = 'rec-status';
+  document.getElementById('rec-playback').style.display = 'none';
+  document.getElementById('save-discard-row').style.display = 'none';
+  document.getElementById('btn-start-rec').disabled = false;
+  document.getElementById('btn-stop-rec').disabled = true;
+  document.getElementById('rec-audio').src = '';
+  buildWaveform();
+  document.getElementById('record-modal').classList.add('open');
+}
+
+function closeRecordModal() {
+  stopRecordingCleanup();
+  document.getElementById('record-modal').classList.remove('open');
+}
+
+function buildWaveform() {
+  const wf = document.getElementById('waveform'); wf.innerHTML = '';
+  for (let i=0; i<48; i++) {
+    const b = document.createElement('div'); b.className='wave-bar'; b.id='wb'+i; wf.appendChild(b);
+  }
+}
+
+async function startRecording() {
+  try { micStream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch(e) { toast('❌ Microphone access denied. Please allow mic access in your browser.'); return; }
+
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(micStream);
+  analyserNode = audioCtx.createAnalyser(); analyserNode.fftSize = 128;
+  src.connect(analyserNode);
+  animateWaveform();
+
+  mediaRecorder = new MediaRecorder(micStream);
+  recordingChunks = [];
+  mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordingChunks.push(e.data); };
+  mediaRecorder.onstop = onRecordStop;
+  mediaRecorder.start(100);
+
+  recSeconds = 0;
+  recTimerInterval = setInterval(() => {
+    recSeconds++;
+    const m = Math.floor(recSeconds/60), s = recSeconds%60;
+    document.getElementById('rec-timer').textContent = `${m}:${String(s).padStart(2,'0')}`;
+  }, 1000);
+
+  document.getElementById('btn-start-rec').disabled = true;
+  document.getElementById('btn-stop-rec').disabled = false;
+  document.getElementById('rec-status').textContent = '● Recording…';
+  document.getElementById('rec-status').className = 'rec-status live';
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop();
+  stopRecordingCleanup();
+}
+
+function stopRecordingCleanup() {
+  clearInterval(recTimerInterval);
+  if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId=null; }
+  if (audioCtx) { try{audioCtx.close();}catch(e){} audioCtx=null; }
+  if (micStream) { micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+  analyserNode = null;
+  for (let i=0; i<48; i++) { const b=document.getElementById('wb'+i); if(b){b.style.height='6px';b.classList.remove('active');} }
+}
+
+function animateWaveform() {
+  if (!analyserNode) return;
+  const data = new Uint8Array(analyserNode.frequencyBinCount);
+  analyserNode.getByteFrequencyData(data);
+  for (let i=0; i<48; i++) {
+    const val = data[Math.floor(i*data.length/48)]||0;
+    const h = Math.max(4, (val/255)*52);
+    const b = document.getElementById('wb'+i);
+    if (b) { b.style.height=h+'px'; b.classList.toggle('active', val>20); }
+  }
+  animFrameId = requestAnimationFrame(animateWaveform);
+}
+
+function onRecordStop() {
+  const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+  recBlob = new Blob(recordingChunks, {type:mime});
+  document.getElementById('rec-audio').src = URL.createObjectURL(recBlob);
+  document.getElementById('rec-playback').style.display = 'block';
+  document.getElementById('save-discard-row').style.display = 'flex';
+  document.getElementById('btn-start-rec').disabled = false;
+  document.getElementById('btn-stop-rec').disabled = true;
+  document.getElementById('rec-status').textContent = 'Done! Preview above, then save or discard.';
+  document.getElementById('rec-status').className = 'rec-status';
+}
+
+function discardRecording() {
+  recBlob = null;
+  document.getElementById('rec-playback').style.display = 'none';
+  document.getElementById('save-discard-row').style.display = 'none';
+  document.getElementById('rec-timer').textContent = '0:00';
+  document.getElementById('rec-status').textContent = 'Discarded. Record again.';
+  document.getElementById('btn-start-rec').disabled = false;
+}
+
+function saveRecording() {
+  if (!recBlob || !recordingNoteId) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      localStorage.setItem('wsrec_'+recordingNoteId, ev.target.result);
+      closeRecordModal(); renderLibrary(); updateSettingsUI();
+      toast('✅ Your voice is now saved to this note!');
+    } catch(e) {
+      toast('⚠️ Storage full. Delete old recordings in Settings and try again.');
+    }
+  };
+  reader.readAsDataURL(recBlob);
+}
+
+// TTS
+function initVoices() {
+  voices = window.speechSynthesis.getVoices();
+  const preferred = voices.filter(v => /samantha|karen|moira|daniel|google uk|google us|zira|david|aria|jenny|guy|natural/i.test(v.name));
+  const all = [...preferred, ...voices.filter(v=>!preferred.includes(v))];
+  const el = document.getElementById('global-voice-select');
+  if (!el) return;
+  el.innerHTML = all.map(v =>
+    `<option value="${v.voiceURI}" ${v.voiceURI===settings.voiceURI?'selected':''}>${v.name} (${v.lang})</option>`
+  ).join('');
+}
+
+window.speechSynthesis.onvoiceschanged = initVoices;
+initVoices();
+
+function getSelectedVoice() {
+  const uri = settings.voiceURI || document.getElementById('global-voice-select')?.value;
+  return voices.find(v=>v.voiceURI===uri) || voices.find(v=>v.lang.startsWith('en')) || voices[0];
+}
+
+function testVoice() {
+  stopAll();
+  const u = new SpeechSynthesisUtterance("Wealth is not about having a lot of money. It is about having a lot of options. This is WealthScribe — your personal knowledge library.");
+  u.voice = getSelectedVoice();
+  u.rate = parseFloat(settings.speed||0.85);
+  u.pitch = parseFloat(settings.pitch||1.0);
+  window.speechSynthesis.speak(u);
+}
+
+// SETTINGS
+function saveSettings() {
+  settings.voiceURI = document.getElementById('global-voice-select')?.value || '';
+  settings.speed = parseFloat(document.getElementById('speed-range').value);
+  settings.pitch = parseFloat(document.getElementById('pitch-range').value);
+  localStorage.setItem('wealthscribe_settings', JSON.stringify(settings));
+}
+
+function updateSpeedLabel() {
+  document.getElementById('speed-label').textContent = parseFloat(document.getElementById('speed-range').value).toFixed(2)+'×';
+}
+
+function updatePitchLabel() {
+  document.getElementById('pitch-label').textContent = parseFloat(document.getElementById('pitch-range').value).toFixed(1);
+}
+
+function loadSettings() {
+  const sr = document.getElementById('speed-range');
+  const pr = document.getElementById('pitch-range');
+  if (sr) sr.value = settings.speed||0.85;
+  if (pr) pr.value = settings.pitch||1.0;
+  updateSpeedLabel(); updatePitchLabel();
+  initVoices();
+}
+
+function updateSettingsUI() {
+  const count = Object.keys(localStorage).filter(k=>k.startsWith('wsrec_')).length;
+  const el = document.getElementById('recording-count');
+  if (el) el.textContent = count;
+}
+
+// UTILS
+function toast(msg) {
+  const el = document.getElementById('toast'); el.textContent = msg;
+  el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+function escH(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// INIT
+loadSettings();
+setTimeout(initVoices, 600);
+</script>
+</body>
+</html>
