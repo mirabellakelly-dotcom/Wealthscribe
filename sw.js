@@ -1,5 +1,4 @@
-// WealthScribe Service Worker
-// Place this file in the SAME folder as wealthscribe.html when hosting
+
 
 const CACHE = 'wealthscribe-v2';
 const SHELL = ['./wealthscribe.html', './'];
